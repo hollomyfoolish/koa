@@ -1,48 +1,49 @@
-import debug from 'debug';
-// debug.enable('koa-router');
 import Koa from 'koa';
-import KoaRouter from 'koa-router';
+import koaMount from "koa-mount"; 
+import cls, { Namespace } from 'cls-hooked';
+// import auth from './auth';
+// import oAuth from './oAuth';
+// import home from './home';
+import session from 'koa-session';
+import store from './session-store';
+import * as filters from './mw/filters';
+import * as services from './mw/services';
 
-const port = 3003;
+const requestCtx: Namespace = cls.createNamespace('app-request-context');
+
 const app = new Koa();
-
-const rout1 = new KoaRouter();
-const rout2 = new KoaRouter();
-const rout3 = new KoaRouter();
-const rout4 = new KoaRouter();
-
-rout4.all('/ping', ctx => { ctx.body = 'pong!' });
-
-// rout1.all(/(?!\/login)^.*$/, async (ctx, next) => {
-// rout1.all(/^.*$/, async (ctx, next) => {
-//     console.log(`access: ${ctx.request.url}`);
-//     return await next();
-// });
-
-rout1.use(async (ctx, next) => {
-    console.log(`access: ${ctx.request.url}`);
-    return next();
-}).get('/login', ctx => {
-    ctx.body = 'login';
+app.keys = ['terces'];
+app.use(session({
+  store: store
+}, app)).use(async (ctx, next) => {
+  return await requestCtx.runAndReturn(async () => {
+   try{
+    requestCtx.set('uid', new String(Math.random()).substring(2));
+    return await next();
+   }catch(e){
+     console.log(e);
+    ctx.status = 500;
+    ctx.body = `something bad happened: ${e.message || e}`;
+   }
+  });
 });
-rout2.get('/login', async (ctx, next) => {
-    ctx.body = 'home2';
-})
 
-// rout3.use('/', rout1.routes());
-// rout3.use('/', rout2.routes());
-// app.use(async (ctx, next) => {
-//     console.log(`access: ${ctx.request.url}`);
-//     return next();
-// });
-// app.use(rout3.routes());
+for(let name in filters){
+  app.use(filters[name]);
+}
+for(let name in services){
+  app.use(services[name].routes());
+}
 
-app.use(rout1.routes());
-app.use(rout2.routes());
+// const homeApp = new Koa();
+// homeApp.use(home.routes());
 
-// app.use(rout2.routes());
-// app.use(rout4.routes());
+// app.use(auth.routes());
+// app.use(oAuth.routes());
+// app.use(koaMount("/", homeApp));
 
-app.listen(port, () => {
-    console.log(`server is on ${port}`);
-})
+  // .use(oAuth.allowedMethods());
+  // .use(home.allowedMethods());
+app.listen(30000, () => {
+  console.log(`App[${process.pid}] runing in port: 30000`);
+});
