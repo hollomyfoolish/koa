@@ -1,3 +1,6 @@
+import debug from 'debug';
+debug.enable('koa-redis');
+import { default as cluster } from 'cluster';
 import Koa from 'koa';
 import koaMount from "koa-mount"; 
 import cls, { Namespace } from 'cls-hooked';
@@ -5,9 +8,17 @@ import cls, { Namespace } from 'cls-hooked';
 // import oAuth from './oAuth';
 // import home from './home';
 import session from 'koa-session';
-import store from './session-store';
+import simplestore from './session-store';
+import redisStore from 'koa-redis';
 import * as filters from './mw/filters';
 import * as services from './mw/services';
+
+let store = null;
+if(cluster.isWorker){
+  store = redisStore({});
+}else{
+  store = simplestore;
+}
 
 const requestCtx: Namespace = cls.createNamespace('app-request-context');
 
